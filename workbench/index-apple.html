@@ -1,0 +1,1578 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>机器人积木编程工作台</title>
+  <meta name="description" content="像 Scratch 一样拖拽积木，快速控制你的机器人。" />
+  <style>
+    :root {
+      --bg: #f5f5f7;
+      --ink: #1d1d1f;
+      --muted: #6e6e73;
+      --shadow: rgba(0, 0, 0, 0.08);
+      --panel: #ffffff;
+      --panel-hover: #fafafa;
+      --border: #d2d2d7;
+      --accent-blue: #007aff;
+      --accent-orange: #ff9f0a;
+      --accent-green: #30d158;
+      --accent-red: #ff453a;
+      --accent-purple: #bf5af2;
+      --accent-teal: #64d2ff;
+      --radius: 20px;
+      --radius-sm: 12px;
+      --radius-xs: 8px;
+      
+      --motion: #4c97ff;
+      --control: #ffab19;
+      --events: #ffd500;
+      --shadow-step: 0 6px 0 var(--shadow);
+      --outline: 2px solid rgba(17, 24, 39, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: radial-gradient(1200px 700px at 10% 10%, #ffffff, transparent),
+        radial-gradient(1200px 700px at 90% 20%, rgba(76, 151, 255, 0.18), transparent),
+        radial-gradient(900px 600px at 70% 85%, rgba(255, 176, 0, 0.14), transparent),
+        var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      overflow: auto;
+    }
+
+    /* Top Bar */
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: rgba(246, 247, 251, 0.7);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(17, 24, 39, 0.1);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 260px;
+    }
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #fff6d1, #ffd27c);
+      border: var(--outline);
+      box-shadow: var(--shadow-step);
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .logo::before {
+      content: "";
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.9);
+      position: absolute;
+      top: -6px;
+      left: -6px;
+      transform: rotate(20deg);
+    }
+    .logoFace {
+      width: 18px;
+      height: 12px;
+      border-radius: 999px;
+      background: rgba(17, 24, 39, 0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 3px;
+    }
+    .logoEye {
+      width: 3px;
+      height: 3px;
+      border-radius: 999px;
+      background: rgba(17, 24, 39, 0.72);
+    }
+    .brandTitle {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.05;
+    }
+    .brandTitle strong { font-size: 14px; }
+    .brandTitle span { font-size: 12px; color: var(--muted); }
+
+    .topActions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: var(--outline);
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 4px 0 rgba(0,0,0,0.1);
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+    .pill:hover { transform: translateY(-1px); }
+    .pill:active { transform: translateY(1px); box-shadow: 0 2px 0 rgba(0,0,0,0.1); }
+    .pillPrimary { background: linear-gradient(180deg, #ffffff, #f3fbff); }
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      border: 2px solid rgba(17,24,39,0.55);
+      background: #d1d5db;
+    }
+    .dot.ok { background: var(--accent-green); }
+    .dot.busy { background: var(--accent-orange); }
+    .dot.bad { background: var(--accent-red); }
+    .statusText { color: var(--muted); }
+
+    /* Main Layout */
+    .layout {
+      padding: 16px;
+      max-width: 1280px;
+      margin: 0 auto;
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 320px 1fr 340px;
+      align-items: stretch;
+      min-height: calc(100vh - 76px);
+    }
+    @media (max-width: 1199px) {
+      .layout { grid-template-columns: 320px 1fr; }
+      .sideRight { grid-column: 1 / -1; }
+    }
+    @media (max-width: 991px) {
+      .layout { grid-template-columns: 1fr; }
+      .brand { min-width: 0; }
+    }
+
+    .panel {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--panel);
+      box-shadow: 0 4px 20px var(--shadow);
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .panel[aria-label="积木库"],
+    .panel[aria-label="编程工作区"],
+    .panel[aria-label="运行与反馈"] {
+      height: 100vh;
+    }
+    .panelHeader {
+      padding: 12px 12px 10px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(180deg, #ffffff, #fbfcff);
+      border-bottom: 1px solid var(--border);
+    }
+    .panelHeader h2 {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+    }
+    .panelBody { padding: 12px; flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+    .muted { color: var(--muted); font-size: 12px; }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tab {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(17,24,39,0.18);
+      background: rgba(255,255,255,0.8);
+      cursor: pointer;
+      font-size: 12px;
+      user-select: none;
+      transition: transform 120ms ease;
+    }
+    .tab:hover { transform: translateY(-1px); }
+    .tab.active { border-color: rgba(17,24,39,0.42); background: #1d1d1f; color: white; }
+
+    .search {
+      width: 100%;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      outline: none;
+      font-size: 13px;
+      background: rgba(255,255,255,0.9);
+      margin-bottom: 10px;
+    }
+    .search:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 4px rgba(0,122,255,0.18); }
+
+    .blockTile {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+      overflow-y: auto;
+      flex: 1;
+      align-content: start;
+      grid-auto-rows: max-content;
+      min-height: 0;
+    }
+
+    .blk {
+      border-radius: 16px;
+      padding: 14px 16px;
+      border: 1px solid transparent;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      cursor: grab;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+    .blk:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .blk:active { cursor: grabbing; transform: translateY(0); }
+    .blk small { font-size: 12px; opacity: 0.8; }
+    .blkBadge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.08);
+      font-weight: 500;
+    }
+
+    .c-motion { background: linear-gradient(135deg, #aed6ff, #64d2ff); color: #003d7a; }
+    .c-control { background: linear-gradient(135deg, #ffd6a5, #ff9f0a); color: #5c3c00; }
+    .c-events { background: linear-gradient(135deg, #ffd37a, #ffd60a); color: #5c4400; }
+
+    .workspaceCanvas {
+      flex: 1;
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      background:
+        radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.06) 1px, transparent 0),
+        linear-gradient(180deg, #fafafa, #f5f5f7);
+      background-size: 20px 20px, 100% 100%;
+      padding: 12px;
+      overflow: auto;
+    }
+    .stack {
+      min-height: 32px;
+      padding: 6px;
+      border-radius: 12px;
+    }
+    .stack.dragOver {
+      outline: 3px solid rgba(0,122,255,0.35);
+      background: rgba(0,122,255,0.08);
+    }
+
+    .inst {
+      position: relative;
+      margin: 10px 0;
+      border-radius: 16px;
+      border: 1px solid transparent;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      padding: 14px 16px;
+      cursor: grab;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+    .inst:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.12); }
+    .inst:active { cursor: grabbing; transform: translateY(0); }
+    .inst.fixed { cursor: default; }
+    .inst.fixed:hover { transform: none; }
+    .instLeft {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .instTitle {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+    .instSub { font-size: 12px; opacity: 0.92; }
+    .instActions { display: flex; gap: 8px; align-items: center; }
+    .iconBtn {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,0.22);
+      background: rgba(255,255,255,0.7);
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+    .iconBtn:hover { background: rgba(255,255,255,1); transform: translateY(-1px); }
+    .iconBtn:active { transform: translateY(0); }
+
+    .paramInput {
+      width: 90px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(0,0,0,0.24);
+      outline: none;
+      font-size: 13px;
+      background: rgba(255,255,255,0.75);
+      transition: all 0.2s ease;
+    }
+    .paramInput:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 4px rgba(0,122,255,0.18); }
+
+    .repeatBodyWrap {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 14px;
+      border: 2px solid rgba(0,0,0,0.1);
+      background: rgba(255,255,255,0.55);
+      width: 100%;
+    }
+    .repeatBodyTitle {
+      font-size: 12px;
+      color: rgba(0,0,0,0.5);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    .childIndent { padding-left: 10px; border-left: 3px solid rgba(0,0,0,0.1); }
+
+    .inst-motion { background: linear-gradient(135deg, #aed6ff, #64d2ff); color: #003d7a; }
+    .inst-control { background: linear-gradient(135deg, #ffd6a5, #ff9f0a); color: #5c3c00; }
+    .inst-events { background: linear-gradient(135deg, #ffd37a, #ffd60a); color: #5c4400; }
+
+    .controls {
+      display: grid;
+      gap: 10px;
+    }
+    .btn {
+      height: 48px;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 15px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      user-select: none;
+      transition: all 0.2s ease;
+      letter-spacing: -0.3px;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { transform: translateY(0); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .btnGreen {
+      background: linear-gradient(135deg, #007aff, #5856d6);
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
+    }
+    .btnGreen:hover { box-shadow: 0 8px 24px rgba(0, 122, 255, 0.4); }
+    .btnRed {
+      background: linear-gradient(135deg, #ff453a, #ff375f);
+      color: white;
+      box-shadow: 0 4px 12px rgba(255, 69, 58, 0.3);
+    }
+    .btnGhost {
+      background: var(--bg);
+      color: var(--ink);
+      border: 1px solid var(--border);
+    }
+
+    .formRow {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .label {
+      font-size: 12px;
+      color: var(--muted);
+      min-width: 92px;
+    }
+    .textInput {
+      flex: 1;
+      min-width: 160px;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      outline: none;
+      font-size: 13px;
+      background: rgba(255,255,255,0.92);
+      transition: all 0.2s ease;
+    }
+    .textInput:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 4px rgba(0,122,255,0.18); background: white; }
+    .miniInput { width: 110px; }
+    .toggle {
+      display: inline-flex;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.85);
+      cursor: pointer;
+      user-select: none;
+      font-size: 12px;
+      transition: all 0.2s ease;
+    }
+    .toggle:hover { background: rgba(255,255,255,1); }
+
+    .logBox {
+      height: 200px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      overflow: auto;
+      padding: 14px;
+      font-size: 12px;
+      line-height: 1.4;
+      flex: 1;
+    }
+    .logItem { display: flex; gap: 10px; margin-bottom: 8px; }
+    .logTime { color: var(--muted); min-width: 54px; }
+    .logMsg { color: var(--ink); }
+    .logOk { color: var(--accent-green); font-weight: 500; }
+    .logBad { color: var(--accent-red); font-weight: 500; }
+    .logHint { color: var(--muted); }
+
+    .previewSection {
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .previewSection h3 {
+      margin: 0 0 12px 0;
+      font-size: 13px;
+      letter-spacing: 0.2px;
+    }
+    .previewBox {
+      height: 160px;
+      border-radius: 16px;
+      background: linear-gradient(180deg, #f5f5f7, #e5e5ea);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 1px solid var(--border);
+    }
+    .robotPreview {
+      font-size: 64px;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+
+    /* Modal */
+    .modalOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      z-index: 50;
+      backdrop-filter: blur(4px);
+    }
+    .modalOverlay.open { display: flex; }
+    .modal {
+      width: min(760px, 100%);
+      border-radius: 24px;
+      background: #fff;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    .modalHeader {
+      padding: 20px 20px 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(180deg, #ffffff, #f8fafc);
+      border-bottom: 1px solid var(--border);
+    }
+    .modalHeader h3 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.4px; }
+    .modalBody { padding: 20px; }
+    .helpGrid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 720px) {
+      .helpGrid { grid-template-columns: 1fr; }
+    }
+    .helpCard {
+      border-radius: 16px;
+      background: var(--bg);
+      padding: 16px;
+    }
+    .helpCard h4 { margin: 0 0 8px 0; font-size: 14px; font-weight: 600; }
+    .helpCard p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+    .kbd {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" aria-label="机器人积木编程工作台">
+      <div class="logo" role="img" aria-label="卡通机器人">
+        <div class="logoFace"><span class="logoEye"></span><span class="logoEye"></span></div>
+      </div>
+      <div class="brandTitle">
+        <strong>机器人积木编程工作台</strong>
+        <span>拖拽积木 → 拼好程序 → 点击测试/发送</span>
+      </div>
+    </div>
+
+    <div class="topActions">
+      <button class="pill" id="switchOldBtn" type="button">返回老页面</button>
+      <button class="pill pillPrimary" id="openSettingsBtn" type="button">连接与设置</button>
+      <button class="pill" id="openHelpBtn" type="button">示例与帮助</button>
+      <div class="pill" id="statusPill" type="button" aria-label="连接状态">
+        <span class="dot" id="statusDot"></span>
+        <span class="statusText" id="statusText">未测试连接</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel" aria-label="积木库">
+      <div class="panelHeader">
+        <h2>积木库</h2>
+        <div class="tabs" role="tablist" aria-label="积木分类">
+          <div class="tab active" data-cat="motion" role="tab" aria-selected="true">运动</div>
+          <div class="tab" data-cat="control" role="tab" aria-selected="false">控制</div>
+          <div class="tab" data-cat="events" role="tab" aria-selected="false">事件</div>
+        </div>
+      </div>
+      <div class="panelBody">
+        <input class="search" id="blockSearch" placeholder="搜索积木，比如：前进 / 等待" />
+        <div class="blockTile" id="palette"></div>
+        <div style="margin-top: 12px" class="muted">提示：把积木拖到中间的工作区；积木右侧的 × 可以删除。</div>
+      </div>
+    </section>
+
+    <section class="panel" aria-label="编程工作区">
+      <div class="panelHeader">
+        <h2>工作区</h2>
+        <div class="tabs" aria-label="画布操作">
+          <div class="tab" id="centerBtn">居中</div>
+          <div class="tab" id="clearBtn">清空</div>
+        </div>
+      </div>
+      <div class="panelBody">
+        <div class="workspaceCanvas" id="workspaceCanvas">
+          <div class="stack" id="rootStack" aria-label="程序堆叠区"></div>
+        </div>
+        <div style="margin-top: 10px" class="muted">机器人端接口保持不变：所有动作都将转换成逐条 `POST /control`。</div>
+      </div>
+    </section>
+
+    <section class="panel sideRight" aria-label="运行与日志">
+      <div class="panelHeader">
+        <h2>运行与反馈</h2>
+        <div class="tabs" aria-label="快捷动作">
+          <div class="tab" id="quickHome">回到原位</div>
+          <div class="tab" id="quickStopClear">清空日志</div>
+        </div>
+      </div>
+      <div class="panelBody">
+        <div class="previewSection">
+          <h3>预览</h3>
+          <div class="previewBox">
+            <div class="robotPreview">🤖</div>
+          </div>
+        </div>
+        <div class="controls">
+          <button class="btn btnGreen" id="runBtn" type="button">测试 / 发送</button>
+          <button class="btn btnRed" id="stopBtn" type="button" disabled>停止</button>
+          <button class="btn btnGhost" id="testConnBtn" type="button">连接测试（发送 home）</button>
+
+          <div class="formRow">
+            <div class="label">目标地址</div>
+            <div class="muted" id="targetLabel">/api/control</div>
+          </div>
+          <div style="height: 10px"></div>
+          <div class="formRow">
+            <label class="toggle"><input id="simulateOnly" type="checkbox" />仅模拟（不发请求）</label>
+            <label class="toggle"><input id="continueOnError" type="checkbox" />失败继续</label>
+            <label class="toggle"><input id="autoScrollLogs" type="checkbox" checked />日志自动滚动</label>
+          </div>
+
+          <div style="height: 12px"></div>
+          <div class="logBox" id="logBox" aria-label="运行日志"></div>
+          <div style="margin-top: 10px" class="muted" id="hintText"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modalOverlay" id="settingsModal" role="dialog" aria-modal="true" aria-label="连接与设置">
+    <div class="modal">
+      <div class="modalHeader">
+        <h3>连接与设置</h3>
+        <button class="pill" id="closeSettingsBtn" type="button">关闭</button>
+      </div>
+      <div class="modalBody">
+        <div class="helpCard" style="margin-bottom: 12px">
+          <h4>连接说明</h4>
+          <p>推荐开启“通过代理发送”：工作台会把请求发到同域的 `/api/control`，由工作台服务转发到机器人 `POST /control`，从而绕过浏览器跨域限制。</p>
+          <p style="margin-top: 6px">如果你把本页面部署在机器人同域（不独立部署），可以关闭代理并把 Base URL 留空。</p>
+        </div>
+
+        <div class="formRow">
+          <div class="label">Base URL</div>
+          <input class="textInput" id="baseUrlInput" placeholder="例如 http://192.168.2.182" />
+        </div>
+        <div style="height: 10px"></div>
+        <div class="formRow">
+          <div class="label">发送方式</div>
+          <label class="toggle"><input id="useProxyInput" type="checkbox" />通过代理发送（推荐）</label>
+        </div>
+        <div style="height: 10px"></div>
+        <div class="formRow">
+          <div class="label">超时</div>
+          <input class="textInput miniInput" id="timeoutInput" type="number" min="1000" max="60000" step="500" />
+          <div class="muted">ms（建议 10000）</div>
+        </div>
+        <div style="height: 10px"></div>
+        <div class="formRow">
+          <div class="label">重试次数</div>
+          <input class="textInput miniInput" id="retryInput" type="number" min="0" max="5" step="1" />
+          <div class="muted">失败时最多重试</div>
+        </div>
+        <div style="height: 12px"></div>
+        <div class="formRow">
+          <button class="btn btnGhost" id="saveSettingsBtn" type="button">保存设置</button>
+          <button class="btn btnGhost" id="resetSettingsBtn" type="button">恢复默认</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modalOverlay" id="helpModal" role="dialog" aria-modal="true" aria-label="示例与帮助">
+    <div class="modal">
+      <div class="modalHeader">
+        <h3>示例与帮助</h3>
+        <button class="pill" id="closeHelpBtn" type="button">关闭</button>
+      </div>
+      <div class="modalBody">
+        <div class="helpGrid">
+          <div class="helpCard">
+            <h4>怎么玩</h4>
+            <p>1) 从左边拖拽积木到工作区</p>
+            <p>2) 按顺序排好动作积木</p>
+            <p>3) 点击“测试/发送”逐条执行</p>
+          </div>
+          <div class="helpCard">
+            <h4>快捷键</h4>
+            <p><span class="kbd">Esc</span> 关闭弹窗</p>
+            <p><span class="kbd">Ctrl</span>+<span class="kbd">L</span> 清空日志</p>
+            <p><span class="kbd">Ctrl</span>+<span class="kbd">Enter</span> 运行</p>
+          </div>
+          <div class="helpCard">
+            <h4>示例 1：向前走两次</h4>
+            <p>拖：前进 → 前进</p>
+            <p>建议在动作之间插入“等待”让你更好观察。</p>
+            <p style="margin-top: 6px"><button class="pill" id="loadExample1" type="button">载入示例</button></p>
+          </div>
+          <div class="helpCard">
+            <h4>示例 2：重复 3 次左右转</h4>
+            <p>拖：重复(3) → 左转</p>
+            <p style="margin-top: 6px"><button class="pill" id="loadExample2" type="button">载入示例</button></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const LS_KEYS = {
+      baseUrl: 'quad_robot_base_url',
+      timeout: 'quad_http_timeout_ms',
+      retry: 'quad_http_retry',
+      useProxy: 'quad_use_proxy'
+    }
+
+    const DEFAULTS = {
+      baseUrl: '',
+      timeoutMs: 10000,
+      retry: 0,
+      useProxy: true
+    }
+
+    const BLOCKS = [
+      { cat: 'motion', type: 'forward', title: '前进', subtitle: '走一步', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'backward', title: '后退', subtitle: '退一步', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'turn_L', title: '左转', subtitle: '转一下', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'turn_R', title: '右转', subtitle: '转一下', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'omni_walk', title: '横移', subtitle: '侧向走', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'home', title: '回到原位', subtitle: '休息一下', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'dance', title: '跳舞', subtitle: '开心摇摆', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'hello', title: '打招呼', subtitle: 'Hello', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'up_down', title: '上下动', subtitle: '蹲起', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'push_up', title: '俯卧撑', subtitle: '加油！', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'front_back', title: '前后摆', subtitle: '摇一摇', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'wave_hand', title: '挥挥手', subtitle: 'Wave', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'scared', title: '害怕', subtitle: '哎呀！', className: 'c-motion', badge: '运动' },
+      { cat: 'motion', type: 'moonwalk_L', title: '太空步', subtitle: 'Moonwalk', className: 'c-motion', badge: '运动' },
+      { cat: 'control', type: 'wait', title: '等待', subtitle: '暂停一会儿', className: 'c-control', badge: '控制' },
+      { cat: 'control', type: 'repeat', title: '重复', subtitle: '循环执行', className: 'c-control', badge: '控制' },
+      { cat: 'events', type: 'start', title: '当点击开始', subtitle: '程序入口', className: 'c-events', badge: '事件' }
+    ]
+
+    const els = {
+      palette: document.getElementById('palette'),
+      blockSearch: document.getElementById('blockSearch'),
+      rootStack: document.getElementById('rootStack'),
+      workspaceCanvas: document.getElementById('workspaceCanvas'),
+      runBtn: document.getElementById('runBtn'),
+      stopBtn: document.getElementById('stopBtn'),
+      logBox: document.getElementById('logBox'),
+      hintText: document.getElementById('hintText'),
+      simulateOnly: document.getElementById('simulateOnly'),
+      continueOnError: document.getElementById('continueOnError'),
+      autoScrollLogs: document.getElementById('autoScrollLogs'),
+      statusDot: document.getElementById('statusDot'),
+      statusText: document.getElementById('statusText'),
+      targetLabel: document.getElementById('targetLabel'),
+      openSettingsBtn: document.getElementById('openSettingsBtn'),
+      closeSettingsBtn: document.getElementById('closeSettingsBtn'),
+      settingsModal: document.getElementById('settingsModal'),
+      baseUrlInput: document.getElementById('baseUrlInput'),
+      useProxyInput: document.getElementById('useProxyInput'),
+      timeoutInput: document.getElementById('timeoutInput'),
+      retryInput: document.getElementById('retryInput'),
+      saveSettingsBtn: document.getElementById('saveSettingsBtn'),
+      resetSettingsBtn: document.getElementById('resetSettingsBtn'),
+      openHelpBtn: document.getElementById('openHelpBtn'),
+      closeHelpBtn: document.getElementById('closeHelpBtn'),
+      helpModal: document.getElementById('helpModal'),
+      loadExample1: document.getElementById('loadExample1'),
+      loadExample2: document.getElementById('loadExample2'),
+      centerBtn: document.getElementById('centerBtn'),
+      clearBtn: document.getElementById('clearBtn'),
+      quickHome: document.getElementById('quickHome'),
+      quickStopClear: document.getElementById('quickStopClear'),
+      testConnBtn: document.getElementById('testConnBtn'),
+      switchOldBtn: document.getElementById('switchOldBtn')
+    }
+
+    function nowTimeStr() {
+      const d = new Date()
+      const mm = String(d.getMinutes()).padStart(2, '0')
+      const ss = String(d.getSeconds()).padStart(2, '0')
+      return `${mm}:${ss}`
+    }
+
+    function setStatus(kind, text) {
+      els.statusDot.classList.remove('ok', 'busy', 'bad')
+      if (kind === 'ok') els.statusDot.classList.add('ok')
+      if (kind === 'busy') els.statusDot.classList.add('busy')
+      if (kind === 'bad') els.statusDot.classList.add('bad')
+      els.statusText.textContent = text
+    }
+
+    function appendLog(message, level) {
+      const item = document.createElement('div')
+      item.className = 'logItem'
+      const t = document.createElement('div')
+      t.className = 'logTime'
+      t.textContent = nowTimeStr()
+      const m = document.createElement('div')
+      m.className = 'logMsg'
+      if (level === 'ok') m.classList.add('logOk')
+      if (level === 'bad') m.classList.add('logBad')
+      if (level === 'hint') m.classList.add('logHint')
+      m.textContent = message
+      item.appendChild(t)
+      item.appendChild(m)
+      els.logBox.appendChild(item)
+      if (els.autoScrollLogs.checked) {
+        els.logBox.scrollTop = els.logBox.scrollHeight
+      }
+    }
+
+    function clearLogs() {
+      els.logBox.innerHTML = ''
+    }
+
+    function normalizeBaseUrl(u) {
+      const trimmed = (u || '').trim()
+      if (!trimmed) return ''
+      if (trimmed.endsWith('/')) return trimmed.slice(0, -1)
+      return trimmed
+    }
+
+    function clampInt(value, min, max, fallback) {
+      const n = Number(value)
+      if (!Number.isFinite(n)) return fallback
+      const i = Math.round(n)
+      if (i < min) return min
+      if (i > max) return max
+      return i
+    }
+
+    function readSettings() {
+      const baseUrl = localStorage.getItem(LS_KEYS.baseUrl)
+      const timeoutRaw = localStorage.getItem(LS_KEYS.timeout)
+      const retryRaw = localStorage.getItem(LS_KEYS.retry)
+      const useProxyRaw = localStorage.getItem(LS_KEYS.useProxy)
+
+      const timeoutMs = timeoutRaw ? Number(timeoutRaw) : DEFAULTS.timeoutMs
+      const retry = retryRaw ? Number(retryRaw) : DEFAULTS.retry
+      const useProxy = useProxyRaw == null ? DEFAULTS.useProxy : (useProxyRaw === '1' || useProxyRaw === 'true')
+
+      return {
+        baseUrl: baseUrl != null ? baseUrl : DEFAULTS.baseUrl,
+        timeoutMs: Number.isFinite(timeoutMs) ? timeoutMs : DEFAULTS.timeoutMs,
+        retry: Number.isFinite(retry) ? retry : DEFAULTS.retry,
+        useProxy
+      }
+    }
+
+    function writeSettings(next) {
+      localStorage.setItem(LS_KEYS.baseUrl, next.baseUrl)
+      localStorage.setItem(LS_KEYS.timeout, String(next.timeoutMs))
+      localStorage.setItem(LS_KEYS.retry, String(next.retry))
+      localStorage.setItem(LS_KEYS.useProxy, next.useProxy ? '1' : '0')
+      refreshTargetLabel()
+    }
+
+    function refreshSettingsUI() {
+      const s = readSettings()
+      els.baseUrlInput.value = s.baseUrl
+      els.timeoutInput.value = String(s.timeoutMs)
+      els.retryInput.value = String(s.retry)
+      els.useProxyInput.checked = !!s.useProxy
+      refreshTargetLabel()
+    }
+
+    function refreshTargetLabel() {
+      const s = readSettings()
+      if (s.useProxy) {
+        if (!s.baseUrl) {
+          els.targetLabel.textContent = '/api/control（请先填写 Base URL）'
+          return
+        }
+        els.targetLabel.textContent = `/api/control → ${s.baseUrl}/control`
+        return
+      }
+      const target = (s.baseUrl || '') + '/control'
+      els.targetLabel.textContent = target || '/control（同域）'
+    }
+
+    function openModal(overlayEl) {
+      overlayEl.classList.add('open')
+    }
+
+    function closeModal(overlayEl) {
+      overlayEl.classList.remove('open')
+    }
+
+    function uid() {
+      return Math.random().toString(16).slice(2) + Date.now().toString(16)
+    }
+
+    function createPaletteItem(blockDef) {
+      const el = document.createElement('div')
+      el.className = `blk ${blockDef.className}`
+      el.setAttribute('draggable', 'true')
+      el.dataset.kind = 'palette'
+      el.dataset.type = blockDef.type
+      const left = document.createElement('div')
+      const title = document.createElement('div')
+      title.style.fontWeight = '900'
+      title.style.fontSize = '13px'
+      title.textContent = blockDef.title
+      const sub = document.createElement('small')
+      sub.textContent = blockDef.subtitle
+      left.appendChild(title)
+      left.appendChild(sub)
+
+      const badge = document.createElement('div')
+      badge.className = 'blkBadge'
+      badge.textContent = blockDef.badge
+      el.appendChild(left)
+      el.appendChild(badge)
+
+      el.addEventListener('dragstart', (e) => {
+        const payload = JSON.stringify({ kind: 'palette', type: blockDef.type })
+        e.dataTransfer.setData('text/plain', payload)
+        e.dataTransfer.effectAllowed = 'copy'
+      })
+
+      return el
+    }
+
+    function labelForType(type) {
+      const def = BLOCKS.find(b => b.type === type)
+      return def ? def.title : type
+    }
+
+    function classForType(type) {
+      const def = BLOCKS.find(b => b.type === type)
+      return def ? def.className : 'c-motion'
+    }
+
+    function createInstance(type, opts) {
+      const id = uid()
+      const inst = document.createElement('div')
+      inst.className = `inst inst-${classForType(type).substring(2)}`
+      inst.dataset.kind = 'inst'
+      inst.dataset.type = type
+      inst.dataset.blockId = id
+      inst.setAttribute('draggable', opts && opts.draggable === false ? 'false' : 'true')
+
+      const left = document.createElement('div')
+      left.className = 'instLeft'
+
+      const title = document.createElement('div')
+      title.className = 'instTitle'
+      title.textContent = labelForType(type)
+      left.appendChild(title)
+
+      if (type === 'wait') {
+        const sub = document.createElement('div')
+        sub.className = 'instSub'
+        sub.textContent = 'ms'
+        const input = document.createElement('input')
+        input.className = 'paramInput'
+        input.type = 'number'
+        input.min = '0'
+        input.max = '60000'
+        input.step = '100'
+        input.value = String((opts && opts.ms) || 800)
+        input.dataset.param = 'ms'
+        left.appendChild(input)
+        left.appendChild(sub)
+      }
+
+      if (type === 'repeat') {
+        const sub = document.createElement('div')
+        sub.className = 'instSub'
+        sub.textContent = '次'
+        const input = document.createElement('input')
+        input.className = 'paramInput'
+        input.type = 'number'
+        input.min = '1'
+        input.max = '20'
+        input.step = '1'
+        input.value = String((opts && opts.times) || 3)
+        input.dataset.param = 'times'
+        left.appendChild(input)
+        left.appendChild(sub)
+      }
+
+      const actions = document.createElement('div')
+      actions.className = 'instActions'
+
+      const del = document.createElement('button')
+      del.className = 'iconBtn'
+      del.type = 'button'
+      del.textContent = '×'
+      del.setAttribute('aria-label', '删除积木')
+
+      if (opts && opts.deletable === false) {
+        del.disabled = true
+        del.style.opacity = '0.3'
+        del.style.cursor = 'not-allowed'
+      } else {
+        del.addEventListener('click', () => {
+          inst.remove()
+        })
+      }
+
+      actions.appendChild(del)
+
+      inst.appendChild(left)
+      inst.appendChild(actions)
+
+      if (opts && opts.draggable === false) {
+        inst.classList.add('fixed')
+      } else {
+        inst.addEventListener('dragstart', (e) => {
+          const payload = JSON.stringify({ kind: 'move', id })
+          e.dataTransfer.setData('text/plain', payload)
+          e.dataTransfer.effectAllowed = 'move'
+        })
+      }
+
+      if (type === 'repeat') {
+        inst.style.flexWrap = 'wrap'
+        inst.style.justifyContent = 'flex-start'
+        inst.style.alignItems = 'flex-start'
+        const wrap = document.createElement('div')
+        wrap.className = 'repeatBodyWrap'
+
+        const head = document.createElement('div')
+        head.className = 'repeatBodyTitle'
+        const leftTitle = document.createElement('div')
+        leftTitle.textContent = '把要重复的积木放在这里'
+        const rightTitle = document.createElement('div')
+        rightTitle.className = 'muted'
+        rightTitle.textContent = '可拖拽排序'
+        head.appendChild(leftTitle)
+        head.appendChild(rightTitle)
+
+        const body = document.createElement('div')
+        body.className = 'stack childIndent'
+        body.dataset.stackId = uid()
+
+        wrap.appendChild(head)
+        wrap.appendChild(body)
+        inst.appendChild(wrap)
+      }
+
+      return inst
+    }
+
+    function renderPalette() {
+      const activeTab = document.querySelector('.tab.active[data-cat]')
+      const cat = activeTab ? activeTab.dataset.cat : 'motion'
+      const q = (els.blockSearch.value || '').trim().toLowerCase()
+      els.palette.innerHTML = ''
+
+      const list = BLOCKS.filter(b => b.cat === cat).filter(b => {
+        if (b.type === 'start') return false
+        if (!q) return true
+        return (b.title + ' ' + b.subtitle).toLowerCase().includes(q)
+      })
+
+      list.forEach(b => els.palette.appendChild(createPaletteItem(b)))
+    }
+
+    function getDragAfterElement(container, y) {
+      const draggableElements = Array.from(container.querySelectorAll(':scope > .inst')).filter(el => el.getAttribute('draggable') !== 'false')
+      let closest = { offset: Number.NEGATIVE_INFINITY, element: null }
+      draggableElements.forEach(el => {
+        const box = el.getBoundingClientRect()
+        const offset = y - box.top - box.height / 2
+        if (offset < 0 && offset > closest.offset) {
+          closest = { offset, element: el }
+        }
+      })
+      return closest.element
+    }
+
+    function tryReadPayload(text) {
+      if (!text) return null
+      try {
+        const obj = JSON.parse(text)
+        if (obj && (obj.kind === 'palette' || obj.kind === 'move')) return obj
+        return null
+      } catch {
+        return null
+      }
+    }
+
+    function wireStackDnD(stackEl) {
+      if (!stackEl || stackEl.dataset.wired === '1') return
+      stackEl.dataset.wired = '1'
+      stackEl.addEventListener('dragover', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        stackEl.classList.add('dragOver')
+        const movingId = tryReadPayload(e.dataTransfer.getData('text/plain'))
+        if (movingId && movingId.kind === 'move') {
+          const movingEl = document.querySelector(`.inst[data-block-id="${movingId.id}"]`)
+          if (movingEl && movingEl.contains(stackEl)) {
+            e.dataTransfer.dropEffect = 'none'
+            return
+          }
+        }
+        if (movingId && movingId.kind === 'move') {
+          e.dataTransfer.dropEffect = 'move'
+        } else if (String(e.dataTransfer.effectAllowed).toLowerCase().includes('move') && !String(e.dataTransfer.effectAllowed).toLowerCase().includes('copy')) {
+          e.dataTransfer.dropEffect = 'move'
+        } else {
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      })
+
+      stackEl.addEventListener('dragleave', () => {
+        stackEl.classList.remove('dragOver')
+      })
+
+      stackEl.addEventListener('dragend', () => {
+        stackEl.classList.remove('dragOver')
+      })
+
+      stackEl.addEventListener('drop', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        stackEl.classList.remove('dragOver')
+        const payload = tryReadPayload(e.dataTransfer.getData('text/plain'))
+        if (!payload) return
+
+        const afterElement = getDragAfterElement(stackEl, e.clientY)
+        if (payload.kind === 'palette') {
+          if (payload.type === 'start') return
+          const inst = createInstance(payload.type, {})
+          if (afterElement == null) stackEl.appendChild(inst)
+          else stackEl.insertBefore(inst, afterElement)
+          wireNestedStacks(inst)
+          return
+        }
+
+        if (payload.kind === 'move') {
+          const movingEl = document.querySelector(`.inst[data-block-id="${payload.id}"]`)
+          if (!movingEl) return
+          if (movingEl.classList.contains('fixed')) return
+          if (movingEl.contains(stackEl)) return
+          if (afterElement == null) stackEl.appendChild(movingEl)
+          else stackEl.insertBefore(movingEl, afterElement)
+        }
+      })
+    }
+
+    function wireNestedStacks(rootEl) {
+      if (rootEl && rootEl.classList && rootEl.classList.contains('stack')) {
+        wireStackDnD(rootEl)
+      }
+      const stacks = rootEl.querySelectorAll('.stack')
+      stacks.forEach(s => wireStackDnD(s))
+    }
+
+    function resetWorkspace() {
+      els.rootStack.innerHTML = ''
+      const start = createInstance('start', { deletable: false, draggable: false })
+      start.classList.add('fixed')
+      start.querySelector('.instTitle').textContent = '当点击开始'
+      start.querySelector('.instActions button').disabled = true
+      els.rootStack.appendChild(start)
+      wireNestedStacks(els.rootStack)
+    }
+
+    function compileStack(stackEl, ctx) {
+      const children = Array.from(stackEl.querySelectorAll(':scope > .inst'))
+      const out = []
+      for (const el of children) {
+        const type = el.dataset.type
+        if (type === 'start') continue
+        if (type === 'wait') {
+          const input = el.querySelector('input[data-param="ms"]')
+          const ms = clampInt(input ? input.value : 0, 0, 60000, 0)
+          out.push({ kind: 'wait', ms })
+          continue
+        }
+        if (type === 'repeat') {
+          const input = el.querySelector('input[data-param="times"]')
+          const times = clampInt(input ? input.value : 1, 1, 20, 1)
+          const childStack = el.querySelector('.repeatBodyWrap .stack')
+          const inner = childStack ? compileStack(childStack, ctx) : []
+          for (let i = 0; i < times; i++) {
+            out.push(...inner)
+            if (out.length > ctx.maxSteps) throw new Error('程序太长了，先减少积木数量或循环次数')
+          }
+          continue
+        }
+
+        out.push({ kind: 'command', command: type })
+        if (out.length > ctx.maxSteps) throw new Error('程序太长了，先减少积木数量')
+      }
+      return out
+    }
+
+    function compileProgram() {
+      const ctx = { maxSteps: 200 }
+      return compileStack(els.rootStack, ctx)
+    }
+
+    async function fetchWithTimeout(url, opts, timeoutMs, runState) {
+      const controller = new AbortController()
+      const t = setTimeout(() => controller.abort(), timeoutMs)
+      if (runState && Array.isArray(runState.abortControllers)) {
+        runState.abortControllers.push(controller)
+      }
+      try {
+        const res = await fetch(url, { ...opts, signal: controller.signal })
+        const raw = await res.text()
+        try {
+          return { ok: true, status: res.status, data: JSON.parse(raw), raw }
+        } catch {
+          return { ok: true, status: res.status, data: raw, raw }
+        }
+      } finally {
+        clearTimeout(t)
+      }
+    }
+
+    function sleep(ms, runState) {
+      return new Promise((resolve, reject) => {
+        if (runState.stop) {
+          reject(new Error('已停止'))
+          return
+        }
+        const t = setTimeout(() => resolve(), ms)
+        runState.timers.push(t)
+      })
+    }
+
+    function cleanupRunState(runState) {
+      runState.timers.forEach(t => clearTimeout(t))
+      runState.timers = []
+      if (Array.isArray(runState.abortControllers)) {
+        runState.abortControllers.forEach(c => {
+          try {
+            c.abort()
+          } catch {
+          }
+        })
+        runState.abortControllers = []
+      }
+    }
+
+    async function postCommand(command, runState) {
+      const s = readSettings()
+
+      let url
+      let body
+      if (s.useProxy) {
+        if (!s.baseUrl) throw new Error('请先在“连接与设置”填写 Base URL')
+        url = '/api/control'
+        body = JSON.stringify({ baseUrl: s.baseUrl, command })
+      } else {
+        url = (s.baseUrl || '') + '/control'
+        body = JSON.stringify({ command })
+      }
+
+      const opts = {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body
+      }
+
+      let attempt = 0
+      const maxAttempt = Math.max(0, s.retry)
+      while (attempt <= maxAttempt) {
+        if (runState.stop) throw new Error('已停止')
+        try {
+          const startedAt = Date.now()
+          const res = await fetchWithTimeout(url, opts, s.timeoutMs, runState)
+          const cost = Date.now() - startedAt
+          return { res, cost }
+        } catch (e) {
+          attempt += 1
+          if (attempt > maxAttempt) throw e
+          await sleep(250, runState)
+        }
+      }
+    }
+
+    function setHint(text) {
+      els.hintText.textContent = text || ''
+    }
+
+    function hasAnyActionSteps(steps) {
+      return steps.some(s => s.kind === 'command' || (s.kind === 'wait' && s.ms > 0))
+    }
+
+    let running = false
+    let currentRunState = null
+
+    async function runProgram() {
+      if (running) return
+      setHint('')
+
+      let steps
+      try {
+        steps = compileProgram()
+      } catch (e) {
+        appendLog(e.message || '程序编译失败', 'bad')
+        setStatus('bad', '程序有问题')
+        return
+      }
+
+      if (!hasAnyActionSteps(steps)) {
+        appendLog('工作区还没有动作积木，先拖一些再运行吧。', 'hint')
+        setStatus('bad', '没有可运行的积木')
+        return
+      }
+
+      running = true
+      const runState = { stop: false, timers: [], abortControllers: [] }
+      currentRunState = runState
+      els.runBtn.disabled = true
+      els.stopBtn.disabled = false
+      setStatus('busy', '运行中…')
+
+      appendLog(`开始运行：共 ${steps.length} 步`, 'hint')
+
+      try {
+        for (let i = 0; i < steps.length; i++) {
+          if (runState.stop) break
+          const step = steps[i]
+          if (step.kind === 'wait') {
+            if (step.ms > 0) {
+              appendLog(`等待 ${step.ms} ms`, 'hint')
+              await sleep(step.ms, runState)
+            }
+            continue
+          }
+          if (step.kind === 'command') {
+            const label = labelForType(step.command)
+            if (els.simulateOnly.checked) {
+              appendLog(`模拟：${label}`, 'hint')
+              await sleep(120, runState)
+              continue
+            }
+
+            appendLog(`发送：${label}`, 'hint')
+            try {
+              const { res, cost } = await postCommand(step.command, runState)
+              appendLog(`成功：${label}（${cost}ms）`, 'ok')
+              if (res && res.data && typeof res.data === 'object' && res.data.msg) {
+                appendLog(`设备返回：${String(res.data.msg)}`, 'hint')
+              }
+            } catch (e) {
+              if (runState.stop) {
+                appendLog('已停止。', 'hint')
+                break
+              }
+              appendLog(`失败：${label}（${e && e.name === 'AbortError' ? '超时' : (e && e.message ? e.message : '请求失败')}）`, 'bad')
+              setStatus('bad', '运行出错')
+              if (!els.continueOnError.checked) throw e
+            }
+          }
+        }
+        if (runState.stop) {
+          appendLog('已停止。', 'hint')
+          setStatus('bad', '已停止')
+        } else {
+          appendLog('运行完成！', 'ok')
+          setStatus('ok', '运行完成')
+        }
+      } catch {
+        setHint('若请求失败：请确认 Base URL 正确；独立部署时建议开启“通过代理发送”。')
+      } finally {
+        cleanupRunState(runState)
+        running = false
+        currentRunState = null
+        els.runBtn.disabled = false
+        els.stopBtn.disabled = true
+      }
+    }
+
+    function stopProgram() {
+      if (!running || !currentRunState) return
+      currentRunState.stop = true
+      cleanupRunState(currentRunState)
+    }
+
+    async function testConnection() {
+      if (running) return
+      setStatus('busy', '测试中…')
+      appendLog('连接测试：发送 home', 'hint')
+      const runState = { stop: false, timers: [], abortControllers: [] }
+      try {
+        if (els.simulateOnly.checked) {
+          appendLog('仅模拟已开启：跳过请求', 'hint')
+          setStatus('ok', '模拟模式')
+          return
+        }
+        const { cost } = await postCommand('home', runState)
+        appendLog(`连接测试成功（${cost}ms）`, 'ok')
+        setStatus('ok', '已连接')
+      } catch (e) {
+        appendLog(`连接测试失败（${e && e.name === 'AbortError' ? '超时' : (e && e.message ? e.message : '请求失败')}）`, 'bad')
+        setStatus('bad', '连接失败')
+        setHint('独立部署时请启用“通过代理发送”，并使用 workbench/server.py 启动工作台服务。')
+      } finally {
+        cleanupRunState(runState)
+      }
+    }
+
+    function setupTabs() {
+      document.querySelectorAll('.tab[data-cat]').forEach(tab => {
+        tab.addEventListener('click', () => {
+          document.querySelectorAll('.tab[data-cat]').forEach(t => {
+            t.classList.remove('active')
+            t.setAttribute('aria-selected', 'false')
+          })
+          tab.classList.add('active')
+          tab.setAttribute('aria-selected', 'true')
+          renderPalette()
+        })
+      })
+    }
+
+    function applyRobotFromQuery() {
+      const params = new URLSearchParams(location.search)
+      const robot = params.get('robot')
+      if (!robot) return
+      const u = normalizeBaseUrl(robot)
+      if (!u) return
+      const s = readSettings()
+      writeSettings({ ...s, baseUrl: u, useProxy: true })
+    }
+
+    function setupButtons() {
+      els.switchOldBtn.addEventListener('click', () => {
+        window.location.href = 'index.html'
+      })
+
+      els.openSettingsBtn.addEventListener('click', () => {
+        refreshSettingsUI()
+        openModal(els.settingsModal)
+      })
+      els.closeSettingsBtn.addEventListener('click', () => closeModal(els.settingsModal))
+
+      els.openHelpBtn.addEventListener('click', () => openModal(els.helpModal))
+      els.closeHelpBtn.addEventListener('click', () => closeModal(els.helpModal))
+
+      els.settingsModal.addEventListener('click', (e) => {
+        if (e.target === els.settingsModal) closeModal(els.settingsModal)
+      })
+      els.helpModal.addEventListener('click', (e) => {
+        if (e.target === els.helpModal) closeModal(els.helpModal)
+      })
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeModal(els.settingsModal)
+          closeModal(els.helpModal)
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+          e.preventDefault()
+          clearLogs()
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault()
+          runProgram()
+        }
+      })
+
+      els.saveSettingsBtn.addEventListener('click', () => {
+        const next = {
+          baseUrl: normalizeBaseUrl(els.baseUrlInput.value),
+          timeoutMs: clampInt(els.timeoutInput.value, 1000, 60000, DEFAULTS.timeoutMs),
+          retry: clampInt(els.retryInput.value, 0, 5, DEFAULTS.retry),
+          useProxy: !!els.useProxyInput.checked
+        }
+        writeSettings(next)
+        appendLog('设置已保存', 'hint')
+        closeModal(els.settingsModal)
+      })
+
+      els.resetSettingsBtn.addEventListener('click', () => {
+        writeSettings({ ...DEFAULTS })
+        refreshSettingsUI()
+        appendLog('已恢复默认设置', 'hint')
+      })
+
+      els.runBtn.addEventListener('click', runProgram)
+      els.stopBtn.addEventListener('click', stopProgram)
+      els.testConnBtn.addEventListener('click', testConnection)
+      els.blockSearch.addEventListener('input', renderPalette)
+
+      els.clearBtn.addEventListener('click', () => {
+        resetWorkspace()
+        appendLog('工作区已清空', 'hint')
+      })
+      els.centerBtn.addEventListener('click', () => {
+        els.workspaceCanvas.scrollTop = 0
+        els.workspaceCanvas.scrollLeft = 0
+      })
+      els.quickStopClear.addEventListener('click', clearLogs)
+      els.quickHome.addEventListener('click', async () => {
+        if (running) return
+        if (els.simulateOnly.checked) {
+          appendLog('模拟：回到原位', 'hint')
+          return
+        }
+        setStatus('busy', '发送中…')
+        const runState = { stop: false, timers: [], abortControllers: [] }
+        try {
+          const { cost } = await postCommand('home', runState)
+          appendLog(`成功：回到原位（${cost}ms）`, 'ok')
+          setStatus('ok', '已连接')
+        } catch (e) {
+          appendLog(`失败：回到原位（${e && e.name === 'AbortError' ? '超时' : (e && e.message ? e.message : '请求失败')}）`, 'bad')
+          setStatus('bad', '发送失败')
+        } finally {
+          cleanupRunState(runState)
+        }
+      })
+
+      els.loadExample1.addEventListener('click', () => {
+        resetWorkspace()
+        const a = createInstance('forward', {})
+        const b = createInstance('forward', {})
+        els.rootStack.appendChild(a)
+        els.rootStack.appendChild(b)
+        wireNestedStacks(els.rootStack)
+        closeModal(els.helpModal)
+        appendLog('已载入示例 1', 'hint')
+      })
+      els.loadExample2.addEventListener('click', () => {
+        resetWorkspace()
+        const rep = createInstance('repeat', { times: 3 })
+        const child = rep.querySelector('.repeatBodyWrap .stack')
+        const t = createInstance('turn_L', {})
+        child.appendChild(t)
+        els.rootStack.appendChild(rep)
+        wireNestedStacks(els.rootStack)
+        closeModal(els.helpModal)
+        appendLog('已载入示例 2', 'hint')
+      })
+    }
+
+    function init() {
+      applyRobotFromQuery()
+      refreshSettingsUI()
+      setupTabs()
+      setupButtons()
+      renderPalette()
+      resetWorkspace()
+      setStatus('bad', '未测试连接')
+      appendLog('提示：先点"连接测试"，再运行你的积木程序。', 'hint')
+    }
+
+    init()
+  </script>
+</body>
+</html>
