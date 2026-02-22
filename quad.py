@@ -473,6 +473,69 @@ class Quad:
         self._moveServos(1000, salto)
         utime.sleep_ms(1000)
 
+    def relax(self):
+        # 1. Right Front (0, 2)
+        step1 = [30, 90, 160, 90, 90, 90, 90, 90]
+        # 2. Left Front (1, 3)
+        step2 = [30, 150, 160, 20, 90, 90, 90, 90]
+        # 3. Left Hind (BL: 5, 7)
+        step3 = [30, 150, 160, 20, 90, 30, 90, 160]
+        # 4. Right Hind (BR: 4, 6)
+        step4 = [30, 150, 160, 20, 150, 30, 20, 160]
+
+        self._moveServos(300, step1)
+        utime.sleep_ms(100)
+        self._moveServos(300, step2)
+        utime.sleep_ms(100)
+        self._moveServos(300, step3)
+        utime.sleep_ms(100)
+        self._moveServos(300, step4)
+    def relax2(self):
+        # Time intervals: 100ms movement, 100ms delay
+        t = 100
+        delay = 100
+
+        # Steps define (target angles, wait after)
+        # 1. Right Front (RF) (0, 2)
+        rf_retract = [30, 90, 160, 90, 90, 90, 90, 90]
+        rf_extend = [90, 90, 90, 90, 90, 90, 90, 90]
+        
+        # 2. Left Front (LF) (1, 3)
+        lf_retract = [90, 150, 160, 20, 90, 90, 90, 90]
+        lf_extend = [90, 90, 90, 90, 90, 90, 90, 90]
+        
+        # 3. Left Hind (BL: 5, 7)
+        lb_retract = [90, 90, 90, 90, 90, 30, 90, 160]
+        lb_extend = [90, 90, 90, 90, 90, 90, 90, 90]
+        
+        # 4. Right Hind (BR: 4, 6)
+        rb_retract = [90, 90, 90, 90, 150, 90, 20, 90]
+        rb_extend = [90, 90, 90, 90, 90, 90, 90, 90]
+
+        # RF
+        self._moveServos(t, rf_retract)
+        utime.sleep_ms(delay)
+        self._moveServos(t, rf_extend)
+        utime.sleep_ms(delay)
+
+        # LF
+        self._moveServos(t, lf_retract)
+        utime.sleep_ms(delay)
+        self._moveServos(t, lf_extend)
+        utime.sleep_ms(delay)
+
+        # LB
+        self._moveServos(t, lb_retract)
+        utime.sleep_ms(delay)
+        self._moveServos(t, lb_extend)
+        utime.sleep_ms(delay)
+
+        # RB
+        self._moveServos(t, rb_retract)
+        utime.sleep_ms(delay)
+        self._moveServos(t, rb_extend)
+        utime.sleep_ms(delay)
+
     def frog_jump(self, steps=3):
         hi = 40 # Squat amount
         thrust_back_z = 50 # Back thrust 
@@ -522,6 +585,7 @@ class Quad:
             self._moveServos(200, squat)
         
         self._moveServos(500, [90] * 8)
+
 
 
 # end
