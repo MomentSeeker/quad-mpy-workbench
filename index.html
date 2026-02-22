@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset='utf-8'>
     <title>Otto</title>
@@ -16,6 +17,7 @@
             /*flex-direction: column;*/
             /*overflow: scroll;*/
         }
+
         .container {
             display: flex;
             flex-wrap: wrap;
@@ -24,6 +26,7 @@
             max-width: 100%;
             padding: 50px;
         }
+
         .left {
             display: flex;
             flex-direction: column;
@@ -32,6 +35,7 @@
             max-width: 100%;
             margin: 30px;
         }
+
         .right {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -39,11 +43,13 @@
             gap: 5px;
             margin: 30px;
         }
+
         .top-row {
             display: flex;
             justify-content: center;
             align-items: center;
         }
+
         .middle-row {
             display: flex;
             justify-content: space-between;
@@ -52,11 +58,13 @@
             margin-top: 10px;
             margin-bottom: 10px;
         }
+
         .bottom-row {
             display: flex;
             justify-content: center;
             align-items: center;
         }
+
         .button {
             background-color: #f0f0f0;
             border: 1px solid #ccc;
@@ -67,11 +75,13 @@
             border-radius: 10px;
             cursor: pointer;
         }
+
         .left .button {
             width: 150px;
             height: 150px;
             font-size: 60px;
         }
+
         .right .button {
             width: 220px;
             height: 100px;
@@ -79,6 +89,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class='container'>
         <div class='left'>
@@ -100,10 +111,11 @@
             <div class='button' id='front_back'>FrontBack</div>
             <div class='button' id='wave_hand'>WaveHand</div>
             <div class='button' id='scared'>Scared</div>
+            <div class='button' id='frog_jump'>Frog Jump</div>
         </div>
     </div>
 
-    <script >
+    <script>
 
         function buttonClick(c) {
             fetch('/control', {
@@ -113,9 +125,9 @@
                 },
                 body: JSON.stringify({ command: c })
             })
-            .then(response => response.json())
-            .then(data => console.log(data))
-            .catch(error => console.error(error));
+                .then(response => response.json())
+                .then(data => console.log(data))
+                .catch(error => console.error(error));
         }
 
         document.querySelectorAll('.button').forEach(button => {
@@ -126,4 +138,5 @@
     </script>
 
 </body>
+
 </html>

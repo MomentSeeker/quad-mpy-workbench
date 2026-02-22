@@ -473,6 +473,56 @@ class Quad:
         self._moveServos(1000, salto)
         utime.sleep_ms(1000)
 
+    def frog_jump(self, steps=3):
+        hi = 40 # Squat amount
+        thrust_back_z = 50 # Back thrust 
+        thrust_front_z = 70 # Front thrust (higher)
+
+        # 1. Squat down
+        squat = [
+            90, 90,             # front x
+            90 - hi, 90 + hi,   # front z lowered
+            90, 90,             # back x
+            90 + hi, 90 - hi    # back z lowered
+        ]
+
+        # 2. Back legs thrust (front stays squatted)
+        thrust_1 = [
+            100, 80,                        # front x minor shift
+            90 - hi, 90 + hi,               # front z stays low
+            110, 70,                        # back x pushed back slightly
+            90 - thrust_back_z, 90 + thrust_back_z    # back z extended
+        ]
+
+        # 3. Front legs thrust (full jump)
+        thrust_2 = [
+            110, 70,                                 # front x pushed back
+            90 + thrust_front_z, 90 - thrust_front_z,# front z fully extended
+            110, 70,                                 # back x pushed back slightly
+            90 - thrust_back_z, 90 + thrust_back_z   # back z extended
+        ]
+
+        # 4. Tuck in mid-air
+        tuck = [
+            70, 110,            # front x forward
+            90 - hi, 90 + hi,   # front z tucked
+            70, 110,            # back x forward
+            90 + hi, 90 - hi    # back z tucked
+        ]
+
+        for i in range(steps):
+            self._moveServos(400, squat)
+            # Back thrusts first
+            self._moveServos(100, thrust_1) 
+            # Front thrusts (main jump)
+            self._moveServos(150, thrust_2) 
+            # Mid air tuck
+            self._moveServos(300, tuck)
+            # Land back to squat
+            self._moveServos(200, squat)
+        
+        self._moveServos(500, [90] * 8)
+
 
 # end
 if __name__ == '__main__':
