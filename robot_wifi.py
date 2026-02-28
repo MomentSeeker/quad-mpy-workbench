@@ -48,12 +48,14 @@ class RobotWifi:
         return ip
 
     def handle_post_request(self, post_data):
-        command = json.loads(post_data).get("command")
+        data = json.loads(post_data)
+        command = data.get("command")
+        params  = data.get("params")       # optional: used by customize_action
         if command:
             try:
                 print(command)
                 method = getattr(self.robot, command)
-                method()
+                method(params) if params is not None else method()
                 return json.dumps({"status": "200", "msg": command})
             except Exception as e:
                 err = "Error executing command:" + str(e)
@@ -61,8 +63,24 @@ class RobotWifi:
                 return json.dumps({"status": "500", "msg": err})
 
     def handle_get_request(self):
-        response_headers = 'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n'
+        response_headers = (
+            'HTTP/1.1 200 OK\r\n'
+            'Content-Type: text/html\r\n'
+            'Access-Control-Allow-Origin: *\r\n'
+            '\r\n'
+        )
         return response_headers + self.html
+
+    def handle_options_request(self):
+        """Handle CORS preflight from browser (e.g. Sim on localhost)."""
+        return (
+            'HTTP/1.1 200 OK\r\n'
+            'Access-Control-Allow-Origin: *\r\n'
+            'Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n'
+            'Access-Control-Allow-Headers: Content-Type\r\n'
+            'Content-Length: 0\r\n'
+            '\r\n'
+        )
 
     def handle_request(self, client_socket):
         request = client_socket.recv(1024)
@@ -70,9 +88,19 @@ class RobotWifi:
         request_lines = request_str.split('\r\n')
         method, path, _ = request_lines[0].split()
 
-        if method == "POST" and path == "/control":
+        if method == "OPTIONS":
+            response = self.handle_options_request()
+
+        elif method == "POST" and path == "/control":
             post_data = request_lines[-1]
-            response = self.handle_post_request(post_data)
+            body = json.loads(post_data)
+            result = self.handle_post_request(json.dumps(body))
+            response = (
+                'HTTP/1.1 200 OK\r\n'
+                'Content-Type: application/json\r\n'
+                'Access-Control-Allow-Origin: *\r\n'
+                '\r\n'
+            ) + result
 
         else:
             response = self.handle_get_request()

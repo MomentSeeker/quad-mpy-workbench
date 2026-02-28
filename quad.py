@@ -12,6 +12,24 @@ SMALL = const(5)
 MEDIUM = const(15)
 BIG = const(30)
 
+# -- DSL Semantic → Angle Translation Tables
+# Mirrors ActionParser.ts in quadbot-sim exactly.
+# Index layout: 0=FR_Hip,1=FL_Hip,2=FL_Knee,3=FR_Knee,4=BR_Hip,5=BL_Hip,6=BR_Knee,7=BL_Knee
+HIP_MAP = {
+    'forward_max': 140,
+    'forward':     115,
+    'neutral':      90,
+    'backward':     65,
+    'backward_max': 40,
+}
+KNEE_MAP = {
+    'retracted_max': 150,
+    'retracted':     120,
+    'neutral':        90,
+    'extended':       60,
+    'extended_max':   30,
+}
+
 
 def DEG2RAD(g):
     return (g * math.pi) / 180
@@ -586,6 +604,57 @@ class Quad:
         
         self._moveServos(500, [90] * 8)
 
+    # ----------------------------------------------------------------
+    # DSL / Customize Action
+    # ----------------------------------------------------------------
+
+    def _angles_from_semantic(self, legs):
+        """Convert a semantic legs dict to an 8-element servo angle list.
+
+        legs format:
+            {'FR': {'hip': 'forward', 'knee': 'retracted'}, 'FL': ..., 'BR': ..., 'BL': ...}
+
+        Index mapping (same as sim / ActionParser.ts):
+            0=FR_Hip  1=FL_Hip  2=FL_Knee  3=FR_Knee
+            4=BR_Hip  5=BL_Hip  6=BR_Knee  7=BL_Knee
+        """
+        arr = [90] * 8
+        FR = legs.get('FR', {})
+        FL = legs.get('FL', {})
+        BR = legs.get('BR', {})
+        BL = legs.get('BL', {})
+        arr[0] = HIP_MAP.get(FR.get('hip',  'neutral'), 90)
+        arr[1] = HIP_MAP.get(FL.get('hip',  'neutral'), 90)
+        arr[4] = HIP_MAP.get(BR.get('hip',  'neutral'), 90)
+        arr[5] = HIP_MAP.get(BL.get('hip',  'neutral'), 90)
+        arr[3] = KNEE_MAP.get(FR.get('knee', 'neutral'), 90)
+        arr[2] = KNEE_MAP.get(FL.get('knee', 'neutral'), 90)
+        arr[6] = KNEE_MAP.get(BR.get('knee', 'neutral'), 90)
+        arr[7] = KNEE_MAP.get(BL.get('knee', 'neutral'), 90)
+        return arr
+
+    def customize_action(self, params):
+        """Execute a sequence of DSL frames sent from the Sim.
+
+        Each frame in params can be either:
+          Format A (pre-resolved, sent by sim):
+            {'duration': 400, 'angles': [90, 90, ...(8 values)...]}
+          Format B (raw semantic, for debugging):
+            {'duration': 400, 'legs': {'FR': {'hip':'forward','knee':'retracted'}, ...}}
+
+        After executing all frames, robot returns to home position.
+        """
+        for frame in params:
+            duration = frame.get('duration', 500)
+            if duration <= 0:
+                duration = 500
+            if 'angles' in frame:
+                angles = frame['angles']
+            else:
+                angles = self._angles_from_semantic(frame.get('legs', {}))
+            self._moveServos(duration, angles)
+        # Safe return to home
+        self._moveServos(500, [90] * 8)
 
 
 # end
